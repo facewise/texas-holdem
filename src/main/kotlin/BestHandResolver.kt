@@ -7,20 +7,52 @@ class BestHandResolver {
 
             val sortedCards = cards.sortedArrayWith(Card.RANK_COMPARATOR)
             return resolveStraightFlush(*sortedCards)
+                ?: resolveQuads(*sortedCards)
         }
 
         private fun resolveStraightFlush(vararg cards: Card): Hand.StraightFlush? {
-            var hand = resolveStraight(*cards) ?: return null
+            val hand = resolveStraight(*cards) ?: return null
             if (isFlush(*hand.cards))
                 return Hand.StraightFlush(hand.cards, hand.rank)
+            return null
         }
 
         private fun resolveQuads(vararg cards: Card): Hand.Quads? {
-            val highMap = cards.groupBy(Card::rank).filter { it.value.size == 4 }
+            val group = cards.groupBy(Card::rank)
+            val highMap = group.filter { it.value.size == 4 }
             for (entry in highMap) {
-                return Hand.Quads(arrayOf(*cards), entry.key, Kickers())
+                val kicker = group.maxBy { it.key }.value[0]
+                val bestHands = entry.value.plus(kicker).toTypedArray()
+                return Hand.Quads(bestHands, entry.key, Kickers(kicker))
             }
             return null
+        }
+
+        private fun resolveFullHouse(vararg cards: Card): Hand.FullHouse? {
+            val group = cards.groupBy(Card::rank)
+            val trips = group.filter { it.value.size == 3 }
+            if (trips.isEmpty())
+                return null
+            var firstRank: Cards.Rank? = null
+            var secondRank: Cards.Rank? = null
+            for (entry in trips) {
+                if (firstRank == null) {
+                    firstRank = entry.key
+                } else {
+                    secondRank = entry.key
+                }
+            }
+            if (secondRank == null) {
+                val pairs = group.filter { it.value.size == 2 }
+                if (pairs.isEmpty())
+                    return null
+                for (entry in pairs) {
+                    if (secondRank == null) {
+                        secondRank = entry.key
+                    }
+                }
+            }
+
         }
 
         private fun resolveStraight(vararg cards: Card): Hand.Straight? {
